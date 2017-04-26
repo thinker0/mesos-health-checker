@@ -251,7 +251,7 @@ class MesosHealthCheckerServer implements Closeable {
      * @param serverChannelClass The socket channel class.
      * @throws InterruptedException on interruption.
      */
-    private ChannelFuture start(
+    private void start(
         final EventLoopGroup loopGroup,
         final Class<? extends ServerChannel> serverChannelClass)
         throws InterruptedException {
@@ -269,7 +269,10 @@ class MesosHealthCheckerServer implements Closeable {
 
             // final Channel ch = b.bind(inet).sync().channel();
             // ch.closeFuture().sync();
-            return b.bind(inet);
+            b.bind(inet);
+            logger.info("Listening for Admin on {}", inet);
+        } catch (Throwable t) {
+            logger.warn(t.getMessage(), t);
         } finally {
             // loopGroup.shutdownGracefully().sync();
         }
@@ -302,14 +305,14 @@ class MesosHealthCheckerServer implements Closeable {
 
         /**
          * Netty 5.x
-         * 
+         *
          * @param ctx
          * @param msg
          */
         public void messageReceived(final ChannelHandlerContext ctx, final Object msg) {
             channelRead0(ctx, msg);
         }
-        
+
         /**
          * Handles a new message.
          *
