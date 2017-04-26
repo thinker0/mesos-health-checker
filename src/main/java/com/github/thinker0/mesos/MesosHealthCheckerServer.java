@@ -65,7 +65,7 @@ class MesosHealthCheckerServer implements Closeable {
      * @param ctx     The channel context.
      * @param request The HTTP request.
      */
-    private static void writeNotFound(
+    private void writeNotFound(
         final ChannelHandlerContext ctx,
         final FullHttpRequest request) {
 
@@ -78,7 +78,7 @@ class MesosHealthCheckerServer implements Closeable {
      * @param ctx     The channel context.
      * @param request The HTTP request.
      */
-    private static void writeInternalServerError(
+    private void writeInternalServerError(
         final ChannelHandlerContext ctx,
         final FullHttpRequest request) {
 
@@ -92,12 +92,12 @@ class MesosHealthCheckerServer implements Closeable {
      * @param request The HTTP request.
      * @param status  The error status.
      */
-    private static void writeErrorResponse(
+    private void writeErrorResponse(
         final ChannelHandlerContext ctx,
         final FullHttpRequest request,
         final HttpResponseStatus status) {
 
-        writeResponse(ctx, request, status, TYPE_PLAIN, status.reasonPhrase().toString());
+        writeResponse(ctx, request, status, TYPE_PLAIN, status.reasonPhrase());
     }
 
     /**
@@ -109,7 +109,7 @@ class MesosHealthCheckerServer implements Closeable {
      * @param contentType The response content type.
      * @param content     The response content.
      */
-    private static void writeResponse(
+    private void writeResponse(
         final ChannelHandlerContext ctx,
         final FullHttpRequest request,
         final HttpResponseStatus status,
@@ -131,7 +131,7 @@ class MesosHealthCheckerServer implements Closeable {
      * @param contentType   The response content type.
      * @param contentLength The response content length;
      */
-    private static void writeResponse(
+    private void writeResponse(
         final ChannelHandlerContext ctx,
         final FullHttpRequest request,
         final HttpResponseStatus status,
@@ -166,7 +166,7 @@ class MesosHealthCheckerServer implements Closeable {
         }
     }
 
-    public static boolean is100ContinueExpected(HttpMessage message) {
+    public boolean is100ContinueExpected(HttpMessage message) {
         if (!(message instanceof HttpRequest)) {
             return false;
         } else if (message.protocolVersion().compareTo(HttpVersion.HTTP_1_1) < 0) {
@@ -177,7 +177,7 @@ class MesosHealthCheckerServer implements Closeable {
         }
     }
 
-    public static boolean isKeepAlive(HttpMessage message) {
+    public boolean isKeepAlive(HttpMessage message) {
         CharSequence connection = (CharSequence) message.headers().get(HttpHeaderNames.CONNECTION);
         return connection != null && HttpHeaderValues.CLOSE.contentEqualsIgnoreCase(connection) ? false : (message.protocolVersion().isKeepAliveDefault() ? !HttpHeaderValues.CLOSE.contentEqualsIgnoreCase(connection) : HttpHeaderValues.KEEP_ALIVE.contentEqualsIgnoreCase(connection));
     }
@@ -262,11 +262,10 @@ class MesosHealthCheckerServer implements Closeable {
             final ServerBootstrap b = new ServerBootstrap();
             b.option(ChannelOption.SO_BACKLOG, 1024);
             b.option(ChannelOption.SO_REUSEADDR, true);
+            b.option(ChannelOption.SO_LINGER, 0);
             b.group(loopGroup).channel(serverChannelClass).childHandler(new WebServerInitializer());
-            b.option(ChannelOption.MAX_MESSAGES_PER_READ, Integer.MAX_VALUE);
             b.childOption(ChannelOption.ALLOCATOR, new PooledByteBufAllocator(true));
             b.childOption(ChannelOption.SO_REUSEADDR, true);
-            b.childOption(ChannelOption.MAX_MESSAGES_PER_READ, Integer.MAX_VALUE);
 
             // final Channel ch = b.bind(inet).sync().channel();
             // ch.closeFuture().sync();
@@ -302,6 +301,16 @@ class MesosHealthCheckerServer implements Closeable {
     private class WebServerHandler extends SimpleChannelInboundHandler<Object> {
 
         /**
+         * Netty 5.x
+         * 
+         * @param ctx
+         * @param msg
+         */
+        public void messageReceived(final ChannelHandlerContext ctx, final Object msg) {
+            channelRead0(ctx, msg);
+        }
+        
+        /**
          * Handles a new message.
          *
          * @param ctx The channel context.
@@ -331,12 +340,11 @@ class MesosHealthCheckerServer implements Closeable {
             }
 
             try {
-                final Request requestWrapper = new Request(request);
-                final Object obj = route.getHandler().handle(requestWrapper, null);
+                final Object obj = route.getHandler().handle();
                 final String content = obj == null ? "" : obj.toString();
                 writeResponse(ctx, request, HttpResponseStatus.OK, TYPE_PLAIN, content);
             } catch (final Exception ex) {
-                ex.printStackTrace();
+                logger.warn(ex.getMessage(), ex);
                 writeInternalServerError(ctx, request);
             }
         }

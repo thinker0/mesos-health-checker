@@ -33,12 +33,24 @@ public class HealthCheckServe implements Closeable {
     EventLoopGroup server;
 
     public HealthCheckServe() {
-        this(() -> {}, () -> {});
+        this(() -> {});
+    }
+
+    public HealthCheckServe(Runnable quit) {
+        this(quit, () -> {});
     }
 
     public HealthCheckServe(Runnable quit, Runnable abort) {
         this.quit = quit;
         this.abort = abort;
+    }
+
+    public void quitQuitQuit() {
+        this.quit.run();
+    }
+
+    public void abortAbortAbort() {
+        this.abort.run();
     }
 
     public void start() {
@@ -47,17 +59,19 @@ public class HealthCheckServe implements Closeable {
         try {
             server = new MesosHealthCheckerServer(port)
                 // health request
-                .get("/health", (request, response) -> "OK")
+                .get("/health", () -> {
+                        return "OK";
+                })
 
                 // quitquitquit request
-                .post("/quitquitquit", (request, response) -> {
-                    quit.run();
+                .post("/quitquitquit", () -> {
+                    this.quitQuitQuit();
                     return "OK";
                 })
 
                 // abortabortabort handling
-                .get("/abortabortabort", (request, response) -> {
-                    abort.run();
+                .get("/abortabortabort", () -> {
+                    this.abortAbortAbort();
                     this.close();
                     return "OK";
                 })
