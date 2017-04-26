@@ -7,10 +7,10 @@ import java.util.ArrayList;
 /**
  * The RouteTable class contains all URL routes in the WebServer.
  */
-public class RouteTable {
+class RouteTable {
     private final ArrayList<Route> routes;
 
-    public RouteTable() {
+    RouteTable() {
         this.routes = new ArrayList<Route>();
     }
 

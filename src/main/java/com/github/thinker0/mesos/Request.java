@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
  * The Request class provides convenience helpers to the underyling
  * HTTP Request.
  */
-public class Request {
+class Request {
     private final FullHttpRequest request;
 
 
@@ -17,7 +17,7 @@ public class Request {
      *
      * @param request The Netty HTTP request.
      */
-    public Request(final FullHttpRequest request) {
+    Request(final FullHttpRequest request) {
         this.request = request;
     }
 

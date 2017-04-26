@@ -12,7 +12,10 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
@@ -21,7 +24,8 @@ import java.time.format.DateTimeFormatter;
 /**
  * The WebServer class is a convenience wrapper around the Netty HTTP server.
  */
-public class MesosHealthCheckerServer {
+class MesosHealthCheckerServer implements Closeable {
+    private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
     public static final String TYPE_PLAIN = "text/plain; charset=UTF-8";
     public static final String TYPE_JSON = "application/json; charset=UTF-8";
     public static final String SERVER_NAME = "Netty";
@@ -33,7 +37,7 @@ public class MesosHealthCheckerServer {
     /**
      * Creates a new WebServer.
      */
-    public MesosHealthCheckerServer(Integer port) {
+    MesosHealthCheckerServer(Integer port) {
         this.routeTable = new RouteTable();
         this.port = port;
     }
@@ -213,13 +217,15 @@ public class MesosHealthCheckerServer {
     }
 
     /**
-     * Starts the web server.
+     * Shutdown the web server.
      *
-     * @throws Exception
      */
-    public MesosHealthCheckerServer shutdown() throws Exception {
-        eventLoopGroup.shutdownGracefully().sync();
-        return this;
+    public void close() {
+        try {
+            eventLoopGroup.shutdownGracefully().sync();
+        } catch (InterruptedException e) {
+            logger.warn(e.getMessage(), e);
+        }
     }
 
     /**

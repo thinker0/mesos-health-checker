@@ -22,9 +22,9 @@
   </properties>
 
   <scm>
-    <connection>scm:git:https://github.daumkakao.com/north/mesos-health-checker.git</connection>
-    <developerConnection>scm:git:git@github.daumkakao.com:north/mesos-health-checker.git</developerConnection>
-    <url>https://github.daumkakao.com/north/mesos-health-checker</url>
+    <connection>scm:git:https://github.com/thinker0/mesos-health-checker.git</connection>
+    <developerConnection>scm:git:git@github.com:thinker0/mesos-health-checker.git</developerConnection>
+    <url>https://github.com/thinker0/mesos-health-checker</url>
   </scm>
 
   <dependencies>

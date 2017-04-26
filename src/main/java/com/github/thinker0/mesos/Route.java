@@ -5,12 +5,12 @@ import io.netty.handler.codec.http.HttpMethod;
 /**
  * The Route class represents a single entry in the RouteTable.
  */
-public class Route {
+class Route {
     private final HttpMethod method;
     private final String path;
     private final Handler handler;
 
-    public Route(final HttpMethod method, final String path, final Handler handler) {
+    Route(final HttpMethod method, final String path, final Handler handler) {
         this.method = method;
         this.path = path;
         this.handler = handler;
