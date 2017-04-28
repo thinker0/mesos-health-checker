@@ -9,7 +9,7 @@
 
   <groupId>com.github.thinker0</groupId>
   <artifactId>mesos-health-checker</artifactId>
-  <version>1.0.3-SNAPSHOT</version>
+  <version>1.0.2-SNAPSHOT</version>
 
   <description>Mesos HealthChecker</description>
   <url>http://github.com/thinker0/mesos-health-checker</url>
@@ -79,7 +79,7 @@
         <version>3.0.1</version>
         <configuration>
           <encoding>UTF-8</encoding>
-          <resources />
+          <resources/>
         </configuration>
       </plugin>
       <plugin>
