@@ -343,9 +343,8 @@ class MesosHealthCheckerServer implements Closeable {
             }
 
             try {
-                final Object obj = route.getHandler().handle();
-                final String content = obj == null ? "" : obj.toString();
-                writeResponse(ctx, request, HttpResponseStatus.OK, TYPE_PLAIN, content);
+                final Response response = route.getHandler().handle();
+                writeResponse(ctx, request, HttpResponseStatus.valueOf(response.getStatus()), TYPE_PLAIN, response.getMessage());
             } catch (final Exception ex) {
                 logger.warn(ex.getMessage(), ex);
                 writeInternalServerError(ctx, request);

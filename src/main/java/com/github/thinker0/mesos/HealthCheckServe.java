@@ -22,35 +22,60 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /**
  * https://github.com/codyebberson/netty-example
  */
 public class HealthCheckServe implements Closeable {
     private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
-    private final Runnable quit;
-    private final Runnable abort;
+    private final Set<BooleanSupplier> healthCheckers = new HashSet<>();
+    private final Optional<Runnable> quit;
+    private final Optional<Runnable> abort;
+    private final String body;
     EventLoopGroup server;
 
     public HealthCheckServe() {
-        this(() -> {});
+        this("", () -> {
+        });
     }
 
-    public HealthCheckServe(Runnable quit) {
-        this(quit, () -> {});
+    public HealthCheckServe(String ok) {
+        this(ok, () -> {
+        });
     }
 
-    public HealthCheckServe(Runnable quit, Runnable abort) {
-        this.quit = quit;
-        this.abort = abort;
+    public HealthCheckServe(String ok, Runnable quit) {
+        this(ok, quit, () -> {
+        });
     }
 
-    public void quitQuitQuit() {
-        this.quit.run();
+    public HealthCheckServe(String ok, Runnable quit, Runnable abort) {
+        this.body = ok;
+        this.quit = Optional.of(quit);
+        this.abort = Optional.of(abort);
     }
 
-    public void abortAbortAbort() {
-        this.abort.run();
+    public HealthCheckServe addHealthCheck(BooleanSupplier checker) {
+        healthCheckers.add(checker);
+        return this;
+    }
+
+    public Long health() {
+        return healthCheckers.stream().parallel().filter(b -> !b.getAsBoolean()).count();
+    }
+
+    public HealthCheckServe quitQuitQuit() {
+        this.quit.ifPresent(Runnable::run);
+        return this;
+    }
+
+    public HealthCheckServe abortAbortAbort() {
+        this.abort.ifPresent(Runnable::run);
+        return this;
     }
 
     public void start() {
@@ -60,20 +85,23 @@ public class HealthCheckServe implements Closeable {
             server = new MesosHealthCheckerServer(port)
                 // health request
                 .get("/health", () -> {
-                        return "OK";
+                    if (health() > 0) {
+                        return new Response(500, "ERROR");
+                    }
+                    return new Response(200, "OK");
                 })
 
                 // quitquitquit request
                 .post("/quitquitquit", () -> {
                     this.quitQuitQuit();
-                    return "OK";
+                    return new Response(200, "OK");
                 })
 
                 // abortabortabort handling
                 .get("/abortabortabort", () -> {
                     this.abortAbortAbort();
                     this.close();
-                    return "OK";
+                    return new Response(200, "OK");
                 })
 
                 // Start the server

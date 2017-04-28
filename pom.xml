@@ -11,13 +11,30 @@
   <artifactId>mesos-health-checker</artifactId>
   <version>1.0.2-SNAPSHOT</version>
 
+  <description>Mesos HealthChecker</description>
+  <url>http://github.com/thinker0/mesos-health-checker</url>
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <java.version>1.8</java.version>
+    <java.source.version>1.8</java.source.version>
     <netty.version>4.1.9.Final</netty.version>
     <maven.version>3.6.0</maven.version>
   </properties>
+
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>se choi</name>
+      <email>thinker0@gmail.com</email>
+    </developer>
+  </developers>
 
   <scm>
     <connection>scm:git:https://github.com/thinker0/mesos-health-checker.git</connection>
@@ -49,11 +66,11 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>${maven.version}</version>
+        <version>3.6.0</version>
         <configuration>
-          <source>${java.version}</source>
-          <target>${java.version}</target>
-          <encoding>UTF-8</encoding>
+          <source>${java.source.version}</source>
+          <target>${java.source.version}</target>
+          <encoding>${project.build.sourceEncoding}</encoding>
         </configuration>
       </plugin>
       <plugin>
@@ -62,7 +79,7 @@
         <version>3.0.1</version>
         <configuration>
           <encoding>UTF-8</encoding>
-          <resources />
+          <resources/>
         </configuration>
       </plugin>
       <plugin>
@@ -116,22 +133,48 @@
         <configuration>
           <pushChanges>false</pushChanges>
           <localCheckout>false</localCheckout>
+          <autoVersionSubmodules>true</autoVersionSubmodules>
+          <useReleaseProfile>false</useReleaseProfile>
+          <releaseProfiles>release</releaseProfiles>
+          <goals>deploy nexus-staging:release</goals>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.plugins</groupId>
+        <artifactId>nexus-staging-maven-plugin</artifactId>
+        <version>1.6.7</version>
+        <extensions>true</extensions>
+        <configuration>
+          <serverId>ossrh</serverId>
+          <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+          <autoReleaseAfterClose>true</autoReleaseAfterClose>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>1.5</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
 
   <distributionManagement>
-    <repository>
-      <id>daumkakao</id>
-      <name>Repository</name>
-      <url>http://repo.daumkakao.io/content/repositories/daum</url>
-    </repository>
     <snapshotRepository>
-      <id>daumkakao-snapshots</id>
-      <name>Snapshot Repository</name>
-      <url>http://repo.daumkakao.io/content/repositories/daum-snapshots</url>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </snapshotRepository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
   </distributionManagement>
-
 </project>
