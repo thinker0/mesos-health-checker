@@ -98,7 +98,7 @@ public class HealthCheckServe implements Closeable {
                 })
 
                 // abortabortabort handling
-                .get("/abortabortabort", () -> {
+                .post("/abortabortabort", () -> {
                     this.abortAbortAbort();
                     this.close();
                     return new Response(200, "OK");
