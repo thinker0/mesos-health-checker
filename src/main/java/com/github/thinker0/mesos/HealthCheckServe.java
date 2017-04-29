@@ -64,8 +64,8 @@ public class HealthCheckServe implements Closeable {
         return this;
     }
 
-    public Long health() {
-        return healthCheckers.stream().parallel().filter(b -> !b.getAsBoolean()).count();
+    public Optional<BooleanSupplier> health() {
+        return healthCheckers.stream().parallel().filter(b -> !b.getAsBoolean()).findFirst();
     }
 
     public HealthCheckServe quitQuitQuit() {
@@ -85,7 +85,7 @@ public class HealthCheckServe implements Closeable {
             server = new MesosHealthCheckerServer(port)
                 // health request
                 .get("/health", () -> {
-                    if (health() > 0) {
+                    if (health().isPresent()) {
                         return new Response(500, "ERROR");
                     }
                     return new Response(200, "OK");
