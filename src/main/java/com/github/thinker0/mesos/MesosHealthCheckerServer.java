@@ -262,10 +262,10 @@ class MesosHealthCheckerServer implements Closeable {
             final ServerBootstrap b = new ServerBootstrap();
             b.option(ChannelOption.SO_BACKLOG, 1024);
             b.option(ChannelOption.SO_REUSEADDR, true);
-            b.option(ChannelOption.SO_LINGER, 0);
             b.group(loopGroup).channel(serverChannelClass).childHandler(new WebServerInitializer());
             b.childOption(ChannelOption.ALLOCATOR, new PooledByteBufAllocator(true));
             b.childOption(ChannelOption.SO_REUSEADDR, true);
+            b.childOption(ChannelOption.SO_LINGER, 0);
 
             // final Channel ch = b.bind(inet).sync().channel();
             // ch.closeFuture().sync();
