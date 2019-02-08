@@ -5,7 +5,7 @@
 
   <groupId>com.github.thinker0</groupId>
   <artifactId>mesos-health-checker</artifactId>
-  <version>1.0.4-SNAPSHOT</version>
+  <version>1.0.4</version>
 
   <description>Mesos HealthChecker</description>
   <url>http://github.com/thinker0/mesos-health-checker</url>
@@ -36,7 +36,7 @@
     <connection>scm:git:https://github.com/thinker0/mesos-health-checker.git</connection>
     <developerConnection>scm:git:git@github.com:thinker0/mesos-health-checker.git</developerConnection>
     <url>https://github.com/thinker0/mesos-health-checker</url>
-    <tag>HEAD</tag>
+    <tag>v1.0.4</tag>
   </scm>
 
   <dependencies>
