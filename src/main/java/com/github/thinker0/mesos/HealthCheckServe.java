@@ -17,11 +17,13 @@
 
 package com.github.thinker0.mesos;
 
-import io.netty.channel.EventLoopGroup;
+import io.prometheus.client.exporter.HTTPServer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -30,33 +32,62 @@ import java.util.function.BooleanSupplier;
 /**
  * https://github.com/codyebberson/netty-example
  */
-public class HealthCheckServe implements Closeable {
+public class HealthCheckServe extends HTTPServer implements Closeable {
     private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
     private final Set<BooleanSupplier> healthCheckers = new HashSet<>();
     private final Optional<Runnable> quit;
     private final Optional<Runnable> abort;
     private final String body;
-    EventLoopGroup server;
 
-    public HealthCheckServe() {
-        this("", () -> {
+    public HealthCheckServe() throws IOException {
+        this(9990);
+    }
+
+    public HealthCheckServe(int port) throws IOException {
+        this(port, "OK", () -> {
         });
     }
 
-    public HealthCheckServe(String ok) {
-        this(ok, () -> {
+    public HealthCheckServe(int port, String ok) throws IOException {
+        this(port, ok, () -> {
         });
     }
 
-    public HealthCheckServe(String ok, Runnable quit) {
-        this(ok, quit, () -> {
+    public HealthCheckServe(int port, String ok, Runnable quit) throws IOException {
+        this(port, ok, quit, () -> {
         });
     }
 
-    public HealthCheckServe(String ok, Runnable quit, Runnable abort) {
+    public HealthCheckServe(int port, String ok, Runnable quit, Runnable abort) throws IOException {
+        super(port, false);
         this.body = ok;
         this.quit = Optional.of(quit);
         this.abort = Optional.of(abort);
+        logger.info("Starting health check server on port {}", port);
+        server.createContext("/health", httpExchange -> {
+            final Optional<BooleanSupplier> health = health();
+            if (health.isPresent()) {
+                httpExchange.sendResponseHeaders(500, 0);
+                httpExchange.getResponseBody().write(health.get().toString().getBytes());
+            } else {
+                byte[] bodyBytes = body.getBytes();
+                httpExchange.sendResponseHeaders(200, bodyBytes.length);
+                httpExchange.getResponseBody().write(bodyBytes);
+            }
+            httpExchange.close();
+        });
+        server.createContext("/quitquitquit", httpExchange -> {
+            httpExchange.sendResponseHeaders(200, 0);
+            httpExchange.getResponseBody().write("OK".getBytes());
+            httpExchange.close();
+            quitQuitQuit();
+        });
+        server.createContext("/abortabortabort", httpExchange -> {
+            httpExchange.sendResponseHeaders(200, 0);
+            httpExchange.getResponseBody().write("OK".getBytes());
+            httpExchange.close();
+            abortAbortAbort();
+        });
     }
 
     public HealthCheckServe addHealthCheck(BooleanSupplier checker) {
@@ -76,42 +107,5 @@ public class HealthCheckServe implements Closeable {
     public HealthCheckServe abortAbortAbort() {
         this.abort.ifPresent(Runnable::run);
         return this;
-    }
-
-    public void start() {
-        final int port = Integer.parseInt(System.getProperty("admin.port", "9990"));
-
-        try {
-            server = new MesosHealthCheckerServer(port)
-                // health request
-                .get("/health", () -> {
-                    if (health().isPresent()) {
-                        return new Response(500, "ERROR");
-                    }
-                    return new Response(200, "OK");
-                })
-
-                // quitquitquit request
-                .post("/quitquitquit", () -> {
-                    this.quitQuitQuit();
-                    return new Response(200, "OK");
-                })
-
-                // abortabortabort handling
-                .post("/abortabortabort", () -> {
-                    this.abortAbortAbort();
-                    this.close();
-                    return new Response(200, "OK");
-                })
-
-                // Start the server
-                .start();
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    public void close() {
-        server.shutdownGracefully();
     }
 }
