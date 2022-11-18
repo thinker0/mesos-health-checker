@@ -17,6 +17,7 @@
 
 package com.github.thinker0.mesos;
 
+import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.exporter.HTTPServer;
 
 import org.slf4j.Logger;
@@ -29,8 +30,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 
+import com.sun.net.httpserver.HttpHandler;
+
 /**
- * https://github.com/codyebberson/netty-example
+ * new HealthCheckServe(8080, 8081, () -> true);
  */
 public class HealthCheckServe extends HTTPServer implements Closeable {
     private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
@@ -64,6 +67,8 @@ public class HealthCheckServe extends HTTPServer implements Closeable {
         this.quit = Optional.of(quit);
         this.abort = Optional.of(abort);
         logger.info("Starting health check server on port {}", port);
+        HttpHandler mHandler = new HTTPMetricHandler(CollectorRegistry.defaultRegistry, null);
+        server.createContext("/metrics", mHandler);
         server.createContext("/health", httpExchange -> {
             final Optional<BooleanSupplier> health = health();
             if (health.isPresent()) {
