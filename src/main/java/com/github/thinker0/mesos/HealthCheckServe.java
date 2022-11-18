@@ -68,7 +68,7 @@ public class HealthCheckServe extends HTTPServer implements Closeable {
         this.abort = Optional.of(abort);
         logger.info("Starting health check server on port {}", port);
         HttpHandler mHandler = new HTTPMetricHandler(CollectorRegistry.defaultRegistry, null);
-        server.createContext("/metrics", mHandler);
+        server.createContext("/metrics2", mHandler);
         server.createContext("/health", httpExchange -> {
             final Optional<BooleanSupplier> health = health();
             if (health.isPresent()) {
@@ -82,16 +82,25 @@ public class HealthCheckServe extends HTTPServer implements Closeable {
             httpExchange.close();
         });
         server.createContext("/quitquitquit", httpExchange -> {
-            httpExchange.sendResponseHeaders(200, 0);
-            httpExchange.getResponseBody().write("OK".getBytes());
+            if ("POST".equalsIgnoreCase(httpExchange.getRequestMethod())) {
+                httpExchange.sendResponseHeaders(200, 0);
+                httpExchange.getResponseBody().write("OK".getBytes());
+                httpExchange.close();
+                quitQuitQuit();
+            } else {
+                httpExchange.sendResponseHeaders(404, 0);
+            }
             httpExchange.close();
-            quitQuitQuit();
         });
         server.createContext("/abortabortabort", httpExchange -> {
-            httpExchange.sendResponseHeaders(200, 0);
-            httpExchange.getResponseBody().write("OK".getBytes());
+            if ("POST".equalsIgnoreCase(httpExchange.getRequestMethod())) {
+                httpExchange.sendResponseHeaders(200, 0);
+                httpExchange.getResponseBody().write("OK".getBytes());
+                abortAbortAbort();
+            } else {
+                httpExchange.sendResponseHeaders(404, 0);
+            }
             httpExchange.close();
-            abortAbortAbort();
         });
     }
 
