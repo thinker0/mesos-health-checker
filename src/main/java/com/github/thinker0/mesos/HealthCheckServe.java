@@ -18,17 +18,26 @@
 package com.github.thinker0.mesos;
 
 import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.Predicate;
+import io.prometheus.client.SampleNameFilter;
 import io.prometheus.client.exporter.HTTPServer;
+import io.prometheus.client.exporter.common.TextFormat;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.zip.GZIPOutputStream;
 
 import com.sun.net.httpserver.HttpHandler;
 
@@ -67,8 +76,47 @@ public class HealthCheckServe extends HTTPServer implements Closeable {
         this.quit = Optional.of(quit);
         this.abort = Optional.of(abort);
         logger.info("Starting health check server on port {}", port);
-        HttpHandler mHandler = new HTTPMetricHandler(CollectorRegistry.defaultRegistry, null);
-        server.createContext("/metrics2", mHandler);
+        final CollectorRegistry registry = CollectorRegistry.defaultRegistry;
+        server.createContext("/metrics", httpExchange -> {
+            String query = httpExchange.getRequestURI().getRawQuery();
+            String contextPath = httpExchange.getHttpContext().getPath();
+            ByteArrayOutputStream response = new ByteArrayOutputStream(1 << 20);
+            response.reset();
+            OutputStreamWriter osw = new OutputStreamWriter(response, StandardCharsets.UTF_8);
+            String contentType = TextFormat.chooseContentType(httpExchange.getRequestHeaders().getFirst("Accept"));
+            httpExchange.getResponseHeaders().set("Content-Type", contentType);
+            Predicate<String> filter = null;
+            filter = SampleNameFilter.restrictToNamesEqualTo(filter, parseQuery(query));
+            if (filter == null) {
+                TextFormat.writeFormat(contentType, osw, registry.metricFamilySamples());
+            } else {
+                TextFormat.writeFormat(contentType, osw, registry.filteredMetricFamilySamples(filter));
+            }
+            osw.flush();
+            osw.close();
+
+            if (shouldUseCompression(httpExchange)) {
+                httpExchange.getResponseHeaders().set("Content-Encoding", "gzip");
+                httpExchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+                final GZIPOutputStream os = new GZIPOutputStream(httpExchange.getResponseBody());
+                try {
+                    response.writeTo(os);
+                } finally {
+                    os.close();
+                }
+            } else {
+                long contentLength = response.size();
+                if (contentLength > 0) {
+                    httpExchange.getResponseHeaders().set("Content-Length", String.valueOf(contentLength));
+                }
+                if (httpExchange.getRequestMethod().equals("HEAD")) {
+                    contentLength = -1;
+                }
+                httpExchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, contentLength);
+                response.writeTo(httpExchange.getResponseBody());
+            }
+            httpExchange.close();
+        });
         server.createContext("/health", httpExchange -> {
             final Optional<BooleanSupplier> health = health();
             if (health.isPresent()) {
