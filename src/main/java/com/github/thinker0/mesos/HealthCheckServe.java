@@ -17,46 +17,141 @@
 
 package com.github.thinker0.mesos;
 
-import io.netty.channel.EventLoopGroup;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.zip.GZIPOutputStream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.Predicate;
+import io.prometheus.client.SampleNameFilter;
+import io.prometheus.client.exporter.HTTPServer;
+import io.prometheus.client.exporter.common.TextFormat;
 
 /**
- * https://github.com/codyebberson/netty-example
+ * new HealthCheckServe(8080, () -> true);
  */
-public class HealthCheckServe implements Closeable {
+public class HealthCheckServe extends HTTPServer implements Closeable {
     private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
     private final Set<BooleanSupplier> healthCheckers = new HashSet<>();
     private final Optional<Runnable> quit;
     private final Optional<Runnable> abort;
     private final String body;
-    EventLoopGroup server;
 
-    public HealthCheckServe() {
-        this("", () -> {
+    public HealthCheckServe() throws IOException {
+        this(9990);
+    }
+
+    public HealthCheckServe(int port) throws IOException {
+        this(port, "OK", () -> {
         });
     }
 
-    public HealthCheckServe(String ok) {
-        this(ok, () -> {
+    public HealthCheckServe(int port, String ok) throws IOException {
+        this(port, ok, () -> {
         });
     }
 
-    public HealthCheckServe(String ok, Runnable quit) {
-        this(ok, quit, () -> {
+    public HealthCheckServe(int port, String ok, Runnable quit) throws IOException {
+        this(port, ok, quit, () -> {
         });
     }
 
-    public HealthCheckServe(String ok, Runnable quit, Runnable abort) {
+    public HealthCheckServe(int port, String ok, Runnable quit, Runnable abort) throws IOException {
+        super(port, false);
         this.body = ok;
         this.quit = Optional.of(quit);
         this.abort = Optional.of(abort);
+        logger.info("Starting health check server on port {}", port);
+        final CollectorRegistry registry = CollectorRegistry.defaultRegistry;
+        server.removeContext("/metrics"); // remove the default metrics handler
+        server.createContext("/metrics", httpExchange -> {
+            logger.info("Received metrics request");
+            String query = httpExchange.getRequestURI().getRawQuery();
+            String contextPath = httpExchange.getHttpContext().getPath();
+            ByteArrayOutputStream response = new ByteArrayOutputStream(1 << 20);
+            response.reset();
+            OutputStreamWriter osw = new OutputStreamWriter(response, StandardCharsets.UTF_8);
+            String contentType = TextFormat.chooseContentType(httpExchange.getRequestHeaders().getFirst("Accept"));
+            httpExchange.getResponseHeaders().set("Content-Type", contentType);
+            Predicate<String> filter = null;
+            filter = SampleNameFilter.restrictToNamesEqualTo(filter, parseQuery(query));
+            if (filter == null) {
+                TextFormat.writeFormat(contentType, osw, registry.metricFamilySamples());
+            } else {
+                TextFormat.writeFormat(contentType, osw, registry.filteredMetricFamilySamples(filter));
+            }
+            osw.flush();
+            osw.close();
+
+            if (shouldUseCompression(httpExchange)) {
+                httpExchange.getResponseHeaders().set("Content-Encoding", "gzip");
+                httpExchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+                final GZIPOutputStream os = new GZIPOutputStream(httpExchange.getResponseBody());
+                try {
+                    response.writeTo(os);
+                } finally {
+                    os.close();
+                }
+            } else {
+                long contentLength = response.size();
+                if (contentLength > 0) {
+                    httpExchange.getResponseHeaders().set("Content-Length", String.valueOf(contentLength));
+                }
+                if (httpExchange.getRequestMethod().equals("HEAD")) {
+                    contentLength = -1;
+                }
+                httpExchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, contentLength);
+                response.writeTo(httpExchange.getResponseBody());
+            }
+            httpExchange.close();
+        });
+        server.createContext("/health", httpExchange -> {
+            logger.info("Received health request");
+            final Optional<BooleanSupplier> health = health();
+            if (health.isPresent()) {
+                httpExchange.sendResponseHeaders(500, 0);
+                httpExchange.getResponseBody().write(health.get().toString().getBytes());
+            } else {
+                byte[] bodyBytes = body.getBytes();
+                httpExchange.sendResponseHeaders(200, bodyBytes.length);
+                httpExchange.getResponseBody().write(bodyBytes);
+            }
+            httpExchange.close();
+        });
+        server.createContext("/quitquitquit", httpExchange -> {
+            logger.info("Received quit request");
+            if ("POST".equalsIgnoreCase(httpExchange.getRequestMethod())) {
+                httpExchange.sendResponseHeaders(200, 0);
+                httpExchange.getResponseBody().write("OK".getBytes());
+                httpExchange.close();
+                quitQuitQuit();
+            } else {
+                httpExchange.sendResponseHeaders(404, 0);
+            }
+            httpExchange.close();
+        });
+        server.createContext("/abortabortabort", httpExchange -> {
+            logger.info("Received abort request");
+            if ("POST".equalsIgnoreCase(httpExchange.getRequestMethod())) {
+                httpExchange.sendResponseHeaders(200, 0);
+                httpExchange.getResponseBody().write("OK".getBytes());
+                abortAbortAbort();
+            } else {
+                httpExchange.sendResponseHeaders(404, 0);
+            }
+            httpExchange.close();
+        });
     }
 
     public HealthCheckServe addHealthCheck(BooleanSupplier checker) {
@@ -76,42 +171,5 @@ public class HealthCheckServe implements Closeable {
     public HealthCheckServe abortAbortAbort() {
         this.abort.ifPresent(Runnable::run);
         return this;
-    }
-
-    public void start() {
-        final int port = Integer.parseInt(System.getProperty("admin.port", "9990"));
-
-        try {
-            server = new MesosHealthCheckerServer(port)
-                // health request
-                .get("/health", () -> {
-                    if (health().isPresent()) {
-                        return new Response(500, "ERROR");
-                    }
-                    return new Response(200, "OK");
-                })
-
-                // quitquitquit request
-                .post("/quitquitquit", () -> {
-                    this.quitQuitQuit();
-                    return new Response(200, "OK");
-                })
-
-                // abortabortabort handling
-                .post("/abortabortabort", () -> {
-                    this.abortAbortAbort();
-                    this.close();
-                    return new Response(200, "OK");
-                })
-
-                // Start the server
-                .start();
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    public void close() {
-        server.shutdownGracefully();
     }
 }
