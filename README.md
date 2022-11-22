@@ -3,7 +3,7 @@
 * GET /health
 * POST /quitquitquit
 * POST /abortabortabort
-
+* GET /metrics
 
 # Deploy
 
