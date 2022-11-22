@@ -77,7 +77,9 @@ public class HealthCheckServe extends HTTPServer implements Closeable {
         this.abort = Optional.of(abort);
         logger.info("Starting health check server on port {}", port);
         final CollectorRegistry registry = CollectorRegistry.defaultRegistry;
+        server.removeContext("/metrics"); // remove the default metrics handler
         server.createContext("/metrics", httpExchange -> {
+            logger.info("Received metrics request");
             String query = httpExchange.getRequestURI().getRawQuery();
             String contextPath = httpExchange.getHttpContext().getPath();
             ByteArrayOutputStream response = new ByteArrayOutputStream(1 << 20);
@@ -118,6 +120,7 @@ public class HealthCheckServe extends HTTPServer implements Closeable {
             httpExchange.close();
         });
         server.createContext("/health", httpExchange -> {
+            logger.info("Received health request");
             final Optional<BooleanSupplier> health = health();
             if (health.isPresent()) {
                 httpExchange.sendResponseHeaders(500, 0);
@@ -130,6 +133,7 @@ public class HealthCheckServe extends HTTPServer implements Closeable {
             httpExchange.close();
         });
         server.createContext("/quitquitquit", httpExchange -> {
+            logger.info("Received quit request");
             if ("POST".equalsIgnoreCase(httpExchange.getRequestMethod())) {
                 httpExchange.sendResponseHeaders(200, 0);
                 httpExchange.getResponseBody().write("OK".getBytes());
@@ -141,6 +145,7 @@ public class HealthCheckServe extends HTTPServer implements Closeable {
             httpExchange.close();
         });
         server.createContext("/abortabortabort", httpExchange -> {
+            logger.info("Received abort request");
             if ("POST".equalsIgnoreCase(httpExchange.getRequestMethod())) {
                 httpExchange.sendResponseHeaders(200, 0);
                 httpExchange.getResponseBody().write("OK".getBytes());
