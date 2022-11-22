@@ -17,21 +17,11 @@
 
 package com.github.thinker0.mesos;
 
-import io.prometheus.client.CollectorRegistry;
-import io.prometheus.client.Predicate;
-import io.prometheus.client.SampleNameFilter;
-import io.prometheus.client.exporter.HTTPServer;
-import io.prometheus.client.exporter.common.TextFormat;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Optional;
@@ -39,10 +29,17 @@ import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.zip.GZIPOutputStream;
 
-import com.sun.net.httpserver.HttpHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.Predicate;
+import io.prometheus.client.SampleNameFilter;
+import io.prometheus.client.exporter.HTTPServer;
+import io.prometheus.client.exporter.common.TextFormat;
 
 /**
- * new HealthCheckServe(8080, 8081, () -> true);
+ * new HealthCheckServe(8080, () -> true);
  */
 public class HealthCheckServe extends HTTPServer implements Closeable {
     private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
